@@ -21,6 +21,7 @@ int main( ) {
 
     // define matrix of state transistion probabilities
     double T[3][3] = {
+        // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
         { 1-2*delta, delta, delta },
         { 1-epsilon, epsilon, 0 },
         { 1-epsilon, 0, epsilon }
@@ -38,21 +39,18 @@ int main( ) {
     int len1 = strlen(seq1);
     int len2 = strlen(seq2);
 
-    int len_max = len1 > len2 ? len1 : len2;
-    int len_min = len1 < len2 ? len1 : len2;
-
     // initialize the matrix
-    double M[len_max][len_max];     // match
-    double I[len_max][len_max];     // insertion
-    double D[len_max][len_max];     // deletion
+    double M[len1][len2];     // match
+    double I[len1][len2];     // insertion
+    double D[len1][len2];     // deletion
 
     // initialization:
-    for ( int i = 0; i < len_max; i++ ) {
+    for ( int i = 0; i < len1; i++ ) {
         M[i][0] = I[i][0] = D[i][0] = 0;
     }
-    for ( int j = 0; j < len_min; j++ ) {
+    for ( int j = 0; j < len2; j++ ) {
         M[0][j] = I[0][j] = 0;
-        D[0][j] = 1/len_min;
+        D[0][j] = 1/len2;
     }
 
     // define the matrix of emission probabilities
@@ -71,6 +69,12 @@ int main( ) {
             M[i][j] = lambda[i][j] * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
             I[i][j] = M[i-1][j] * T[0][1] + I[i-1][j] * T[1][1];
             D[i][j] = M[i][j-1] * T[0][2] + D[i][j-1] * T[2][2];
+
+            /* TODO:
+             * Le matrici M, I, D hanno dipendenza solo sugli elementi che si trovano sulla loro sinistra, alto-sinistra o alto,
+             * questo implica il fatto che gli elementi sulla stessa anti-diagonale non hanno dipendenza.
+             * -> parallelizzare questo calcolo
+             */
         }
     }
 
