@@ -12,6 +12,8 @@
 
 #define MAX_LEN 1000
 
+#define BIG_N 1020
+
 int main( ) {
     // INPUT :
     // R[], H[] : read bases and haplotype bases
@@ -24,6 +26,9 @@ int main( ) {
     float epsilon;         // indel continuation probability
     epsilon = 0.1;
 
+    // big number
+    double big_n = pow( 2, BIG_N );
+
     // define matrix of state transistion probabilities
     float T[3][3] = {
         // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
@@ -33,8 +38,8 @@ int main( ) {
     };
 
     // read in the sequence
-    char seq1[MAX_LEN] = "AGTGCTGAAAGTTGCGCCAGTGAC";
-    char seq2[MAX_LEN] = "AGTGCTGAAGTTCGCCAGTTGACG";
+    char seq1[MAX_LEN] = "AGTGAC";
+    char seq2[MAX_LEN] = "AGTGCT";
 
     // printf("Please input the first sequence: ");
     // scanf("%s", seq1);
@@ -50,33 +55,35 @@ int main( ) {
     double D[len1][len2];     // deletion
 
     // initialization:
-    for ( int i = 0; i < len1; i++ ) {
+    M[0][0] = 1;
+    D[0][0] = I[0][0] = 0;
+    for ( int i = 1; i <= len1; i++ ) {
         M[i][0] = I[i][0] = D[i][0] = 0;
     }
     
-    for ( int j = 0; j < len2; j++ ) {
+    for ( int j = 1; j <= len2; j++ ) {
         M[0][j] = I[0][j] = 0;
-        D[0][j] = FLT_MAX/len2;
+        D[0][j] = 0;
     }
 
     // define the matrix of emission probabilities
-    double lambda[len1][len2];
+    double lambda = 0;
     int q = 10;                         // constant default phred-scaled indel start quality
     double Q = pow( 10, -q/10 );        // quality score
     
-    for ( int i = 0; i < len1; i++ ) {
-        for ( int j = 0; j < len2; j++ ) {
+    for ( int i = 1; i < len1; i++ ) {
+        for ( int j = 1; j < len2; j++ ) {
             if ( seq1[i] == seq2[j] )
                 // match
-                lambda[i][j] = Q/3;
+                lambda = Q/3;
             else
                 // mismatch
-                lambda[i][j] = 1-Q;
+                lambda = 1-Q;
             
-            // fill in the rest of the matrix
-            M[i][j] = lambda[i][j] * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
-            I[i][j] = M[i-1][j] * T[0][1] + I[i-1][j] * T[1][1];
-            D[i][j] = M[i][j-1] * T[0][2] + D[i][j-1] * T[2][2];
+            // Matrix are defined by recurrence, thus these implementations are wrong.
+            M[i][j] = lambda * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
+            I[i][j] = T[0][1] * M[i-1][j] + T[1][1] * I[i-1][j];
+            D[i][j] = T[0][2] * M[i][j-1] + T[2][2] * D[i][j-1];
 
             /* TODO:
              * Le matrici M, I, D hanno dipendenza solo sugli elementi che si trovano sulla loro sinistra, alto-sinistra o alto,
@@ -87,10 +94,18 @@ int main( ) {
         }
     }
 
+    // print the matrix
+    for ( int i = 0; i < len1; i++ ) {
+        for ( int j = 0; j < len2; j++ ) {
+            printf("%f \t", M[i][j]);
+        }
+        printf("\n");
+    }
+
     // return the final score
     double finalScore = 0;
-    for ( int j = 0; j < len2; j++ ) {
-        finalScore += M[len1][j];
+    for ( int j = 1; j <= len2; j++ ) {
+        finalScore += (M[len1-1][j]+I[len1-1][j]);
         // printf("finalScore: %g\n", finalScore);
     }
 
