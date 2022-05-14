@@ -21,16 +21,16 @@ int main( ) {
     // T[][] : transition probabilities
     
     // parameters (given by GATK HaplotypeCaller)
-    float delta;           // indel start probability
+    double delta;           // indel start probability
     delta = 0.9;
-    float epsilon;         // indel continuation probability
+    double epsilon;         // indel continuation probability
     epsilon = 0.1;
 
     // big number
     double big_n = pow( 2, BIG_N );
 
     // define matrix of state transistion probabilities
-    float T[3][3] = {
+    double T[3][3] = {
         // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
         { 1-(2*delta), delta, delta },
         { 1-epsilon, epsilon, 0 },
@@ -38,8 +38,8 @@ int main( ) {
     };
 
     // read in the sequence
-    char seq1[MAX_LEN] = "AGTGAC";
-    char seq2[MAX_LEN] = "AGTGCT";
+    char seq1[MAX_LEN] = "ACGTC";
+    char seq2[MAX_LEN] = "ACGAA";
 
     // printf("Please input the first sequence: ");
     // scanf("%s", seq1);
@@ -57,11 +57,11 @@ int main( ) {
     // initialization:
     M[0][0] = 1;
     D[0][0] = I[0][0] = 0;
-    for ( int i = 1; i <= len1; i++ ) {
+    for ( int i = 1; i < len1; i++ ) {
         M[i][0] = I[i][0] = D[i][0] = 0;
     }
     
-    for ( int j = 1; j <= len2; j++ ) {
+    for ( int j = 1; j < len2; j++ ) {
         M[0][j] = I[0][j] = 0;
         D[0][j] = 0;
     }
@@ -80,7 +80,7 @@ int main( ) {
                 // mismatch
                 lambda = 1-Q;
             
-            // Matrix are defined by recurrence, thus these implementations are wrong.
+
             M[i][j] = lambda * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
             I[i][j] = T[0][1] * M[i-1][j] + T[1][1] * I[i-1][j];
             D[i][j] = T[0][2] * M[i][j-1] + T[2][2] * D[i][j-1];
@@ -94,21 +94,10 @@ int main( ) {
         }
     }
 
-    // print the matrix
-    for ( int i = 0; i < len1; i++ ) {
-        for ( int j = 0; j < len2; j++ ) {
-            printf("%f \t", M[i][j]);
-        }
-        printf("\n");
-    }
-
     // return the final score
-    double finalScore = 0;
-    for ( int j = 1; j <= len2; j++ ) {
-        finalScore += (M[len1-1][j]+I[len1-1][j]);
-        // printf("finalScore: %g\n", finalScore);
-    }
+    double finalScore = 0.0;
+    finalScore = M[len1-1][len2-1] + I[len1-1][len2-1] + D[len1-1][len2-1];
 
     printf("Final score: %f\n", finalScore);
-     
+
 }
