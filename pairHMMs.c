@@ -12,8 +12,6 @@
 
 #define MAX_LEN 1000
 
-#define BIG_N 1020
-
 int main( ) {
     // INPUT :
     // R[], H[] : read bases and haplotype bases
@@ -26,20 +24,19 @@ int main( ) {
     double epsilon;         // indel continuation probability
     epsilon = 0.1;
 
-    // big number
-    double big_n = pow( 2, BIG_N );
-
     // define matrix of state transistion probabilities
     double T[3][3] = {
-        // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
         { 1-(2*delta), delta, delta },
         { 1-epsilon, epsilon, 0 },
         { 1-epsilon, 0, epsilon }
     };
 
+    // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
+
+
     // read in the sequence
-    char seq1[MAX_LEN] = "ACGTC";
-    char seq2[MAX_LEN] = "ACGAA";
+    char seq1[MAX_LEN] = "AGTGCTGAAAGTTGCGCCAGTGAC";
+    char seq2[MAX_LEN] = "AGTGCTGAAGTTCGCCAGTTGACG";
 
     // printf("Please input the first sequence: ");
     // scanf("%s", seq1);
@@ -49,7 +46,7 @@ int main( ) {
     int len1 = strlen(seq1);
     int len2 = strlen(seq2);
 
-    // initialize the matrix
+    // declare the matrix
     double M[len1][len2];     // match
     double I[len1][len2];     // insertion
     double D[len1][len2];     // deletion
@@ -67,7 +64,7 @@ int main( ) {
     }
 
     // define the matrix of emission probabilities
-    double lambda = 0;
+    double prior = 0;                   // probability of emitting an aligned pair of symbols
     int q = 10;                         // constant default phred-scaled indel start quality
     double Q = pow( 10, -q/10 );        // quality score
     
@@ -75,13 +72,13 @@ int main( ) {
         for ( int j = 1; j < len2; j++ ) {
             if ( seq1[i] == seq2[j] )
                 // match
-                lambda = Q/3;
+                prior = 1 - Q;
             else
                 // mismatch
-                lambda = 1-Q;
+                prior = Q / 3;
             
 
-            M[i][j] = lambda * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
+            M[i][j] = prior * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
             I[i][j] = T[0][1] * M[i-1][j] + T[1][1] * I[i-1][j];
             D[i][j] = T[0][2] * M[i][j-1] + T[2][2] * D[i][j-1];
 
@@ -96,7 +93,8 @@ int main( ) {
 
     // return the final score
     double finalScore = 0.0;
-    finalScore = M[len1-1][len2-1] + I[len1-1][len2-1] + D[len1-1][len2-1];
+    for ( int j = 0; j < len2; j++ ) 
+        finalScore += ( M[len1-1][j] + I[len1-1][j] );
 
     printf("Final score: %f\n", finalScore);
 
