@@ -25,18 +25,22 @@ int main( ) {
     epsilon = 0.1;
 
     // define matrix of state transistion probabilities
+    /*
     double T[3][3] = {
         { 1-(2*delta), delta, delta },
         { 1-epsilon, epsilon, 0 },
         { 1-epsilon, 0, epsilon }
     };
+    */
 
     // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
-
+    double alpha = 1 - (2*delta);
+    double beta = 1 - epsilon;
+    double gamma = 1 - epsilon;
 
     // read in the sequence
-    char seq1[MAX_LEN] = "AGTGCTGAAAGTTGCGCCAGTGAC";
-    char seq2[MAX_LEN] = "AGTGCTGAAGTTCGCCAGTTGACG";
+    char seq1[MAX_LEN] = "ACGTC";
+    char seq2[MAX_LEN] = "ACGAA";
 
     // printf("Please input the first sequence: ");
     // scanf("%s", seq1);
@@ -60,7 +64,9 @@ int main( ) {
     
     for ( int j = 1; j < len2; j++ ) {
         M[0][j] = I[0][j] = 0;
-        D[0][j] = 0;
+        D[0][j] = 1/len2;               // To allow the alignment of the haplotype to start anywhere on the read
+                                        // without penalty, we need to initialize the entire first row of the deletion
+                                        // matrix with the normalized factor 1/len2
     }
 
     // define the matrix of emission probabilities
@@ -78,9 +84,13 @@ int main( ) {
                 prior = Q / 3;
             
 
-            M[i][j] = prior * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
-            I[i][j] = T[0][1] * M[i-1][j] + T[1][1] * I[i-1][j];
-            D[i][j] = T[0][2] * M[i][j-1] + T[2][2] * D[i][j-1];
+            // M[i][j] = prior * ( T[0][0] * M[i-1][j-1] + T[1][0] * I[i-1][j-1] + T[2][0] * D[i-1][j-1] );
+            // I[i][j] = T[0][1] * M[i-1][j] + T[1][1] * I[i-1][j];
+            // D[i][j] = T[0][2] * M[i][j-1] + T[2][2] * D[i][j-1];
+
+            M[i][j] = prior * ( alpha * M[i-1][j-1] + beta * I[i-1][j-1] + gamma * D[i-1][j-1] );
+            I[i][j] = delta * M[i-1][j] + epsilon * I[i-1][j];
+            D[i][j] = delta * M[i][j-1] + epsilon * D[i][j-1];
 
             /* TODO:
              * Le matrici M, I, D hanno dipendenza solo sugli elementi che si trovano sulla loro sinistra, alto-sinistra o alto,
@@ -93,8 +103,11 @@ int main( ) {
 
     // return the final score
     double finalScore = 0.0;
-    for ( int j = 0; j < len2; j++ ) 
-        finalScore += ( M[len1-1][j] + I[len1-1][j] );
+
+    // for ( int j = 0; j < len2; j++ ) 
+    //    finalScore += ( M[len1-1][j] + I[len1-1][j] );
+
+    finalScore = M[len1-1][len2-1] + I[len1-1][len2-1];
 
     printf("Final score: %f\n", finalScore);
 
