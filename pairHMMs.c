@@ -10,7 +10,7 @@
 #include <string.h>
 #include <math.h>
 
-#define MAX_LEN 1000
+#define MAX_LEN 100000
 
 int main( ) {
     // INPUT :
@@ -33,14 +33,14 @@ int main( ) {
     };
     */
 
-    // poiché sono utilizzati separatamente, posso pensare di definire tre vettori anziché una matrice
+    // poiché sono utilizzati separatamente, posso pensare di definire separatamente anziché una matrice
     double alpha = 1 - (2*delta);
     double beta = 1 - epsilon;
     double gamma = 1 - epsilon;
 
     // read in the sequence
-    char seq1[MAX_LEN] = "ACGTC";
-    char seq2[MAX_LEN] = "ACGAA";
+    char seq1[MAX_LEN] = "CCACACCAAAGAGAGAGATTCAGCAATGCTCGAAGAGATGGACGGCGTTAAGTTTACGCCGATAACCCCAGAGC";
+    char seq2[MAX_LEN] = "AGAAAAGAAGGCTCCGAGAACGCCCACCCTCGCGTACTGTATCCGGAATGACTCCACCTCACTCCGGGCGTGAG";
 
     // printf("Please input the first sequence: ");
     // scanf("%s", seq1);
@@ -64,9 +64,12 @@ int main( ) {
     
     for ( int j = 1; j < len2; j++ ) {
         M[0][j] = I[0][j] = 0;
-        D[0][j] = 1/len2;               // To allow the alignment of the haplotype to start anywhere on the read
+        D[0][j] = INT_MAX/len2;         // To allow the alignment of the haplotype to start anywhere on the read
                                         // without penalty, we need to initialize the entire first row of the deletion
                                         // matrix with the normalized factor 1/len2
+                                        
+        // inizializzando D con un big_n, succede che il output restituisce numeri esagerati
+        //  -> risolto in logspace
     }
 
     // define the matrix of emission probabilities
@@ -104,10 +107,10 @@ int main( ) {
     // return the final score
     double finalScore = 0.0;
 
-    // for ( int j = 0; j < len2; j++ ) 
-    //    finalScore += ( M[len1-1][j] + I[len1-1][j] );
+    for ( int j = 0; j < len2-1; j++ ) 
+        finalScore += ( M[len1-1][j] + I[len1-1][j] );
 
-    finalScore = M[len1-1][len2-1] + I[len1-1][len2-1];
+    finalScore = log10( finalScore );
 
     printf("Final score: %f\n", finalScore);
 
