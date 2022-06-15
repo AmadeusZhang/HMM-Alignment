@@ -1,7 +1,13 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage{subcaption}
 
-\title{Forward algorithm for PairHMM}
+\title{pairHMMs forward algorithm}
 \author{Zijie Zhang}
 \date{June 2022}
 
@@ -9,22 +15,142 @@
 
 \maketitle
 
-\tableofcontents
+\vfill
 
-\newpage
+\tableofcontents
 
 \section{Introduction}
 
-Bioinformatics is a fast growing field, with increasing demand for high computational capabilities for several applications like DNA sequencing.
+Next-Generation Sequencing (NGS) platforms nowadays are able to generate large amounts of DNA sequencing data at low cost. However, handling with these amounts of data consumes much computation time and requires high computational capabilities. For this reason, are developed tools like \emph{GATK} - Genomics Analysis ToolKit - to help researchers study and investigate such DNA data.
 
-Altough sophisticated algorithms are available for DNA sequence analysis, the most commonly used algorithm is the PairHMM algorithm.
+GATK HaplotypeCaller (HC) is a widely used variant caller tool to identify DNA variants by comparing a DNA sequencing data with a reference genome.
 
+Since in GATK HC, the PairHMMs forward algorithm accounts for a large percentage of the total execution time, which is applied to study the overall alignment probability of two sequences, optimize the forward algorithm becomes relevant.
+
+In this report is introduced forward algorithm with a briefly discussion on how to optimize it.
+
+\newpage
+
+\section{Hidden Markov Model}
+
+Before talking about the forward algorithm, is indispensable introduce HMM.
+
+A \emph{Hidden Markov Model (\emph{HMM})} is a probabilistic model of the sequence of events that occur in a system. In the model is required three states, \emph{$M$} corresponding to a \textbf{match}, and two states corresponding to \textbf{insertion} and \textbf{deletion}, named \emph{$I_{x}$} and \emph{$I_{y}$}.
+
+State \emph{$M$} has \emph{emission probability} distribution \emph{$p_{x_i,y_j}$} for emitting an aligned pair $x_{i}:y_{j}$ and states \emph{$I_{x}$} and \emph{$I_{y}$} have distributions $q_{x_i}$ and $q_{y_j}$ for emitting symbol against a gap.
+
+Are denoted also \emph{transition probabilities} between the states: the transition from M to an insert state ($I_x$ or $I_y$) by $\delta$ and staying in an insert state by $\varepsilon$.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\linewidth]{A_pair_HMM_for_pairwise_sequence_alignment_A_pair_HMM_is_used_for.png}
+    \caption{Finite state machine of transitions among states.}
+    \label{fig:probabilistic_model}
+\end{figure}
+
+Adding an explicit \emph{Begin} and \emph{End} state formalise the initialisation and termination conditions, and introduces the need for another parameter: the probability of a transition into the End state, which is assumed for now to be the same from each of M, X and Y.
+
+The new probabilistic model instead of emitting a single sequence it emits a pairwise alignment and is denoted as a pair HMM.
+
+Having a pair HMM allows to bypass the problem of weak-similarity between sequences by calculating the probability that a given pair of sequences are related according to the HMM by any alignment: the \emph{forward algorithm}.
+
+\newpage
+
+\section{Forward algorithm}
+
+The idea of forward algorithm is to find the maximal scoring alignment, but add rather than take the maximum at each step.
+
+The forward algorithm is performed as shown in equations (1)-(3). $m$ and $n$ are the length of the read $R$ and the haplotype $H$.
+
+$M_{i,j}$ is the overall alignment probability of two subsequences $R_{1},\ldots,R_{i}$ and $H_{1},\ldots,R_{j}$ when $R_{i}$ is aligned to $H_{j}$.
+
+$I_{i,j}$ is the overall alignment probability of $R_{1},\ldots,R_{i}$ and $H_{1},\ldots,R_{j}$ when $R_{i}$ is aligned to a gap.
+
+$D_{i,j}$ is the overall alignment probability of $R_{1},\ldots,R_{i}$ and $H_{1},\ldots,R_{j}$ when $H_{j}$ is aligned to a gap.
+
+$\alpha, \delta, \varepsilon$ are transition probabilities. In particular $\delta$ and $\varepsilon$ are set to be constant (by default are $0.9$ and $0.1$, respectively). $\lambda_{i,j}$ is the emission probability, its calculation is shown in equation (4).
+
+\vfill
+
+Initialization:
+\begin{equation}
+    \begin{cases}
+    M_{i,0} = I_{i,0} = D_{i,0} = 0 \quad ( 0 \leq i \leq m ) \\
+    M_{0,j} = I_{0,j} = 0 \quad ( 0 \leq j \leq n ) \\
+    D_{0,j} = 1/n \quad ( 0 \leq j \leq n ) \\
+    \end{cases}
+\end{equation}
+
+Recursion:
+\begin{equation}
+    \begin{cases}
+    M_{i,j} = \lambda_{i,j}(\alpha_{i} M_{i-1,j-1} + \beta_{i} I_{i-1, j-1} + \beta_{i} D_{i-1, j-1}) \\
+    I_{i,j} = \delta_{i} M_{i-1,j} + \varepsilon_{i} I_{i-1, j} \\
+    D_{i,j} = \delta_{i} M_{i,j-1} + \varepsilon_{i} D_{i, j-1} \\
+    \end{cases}
+\end{equation}
+
+Termination:
+\begin{equation}
+    Result = \sum_{j=1}^{n}(M_{m,j}+I_{m,j})
+\end{equation}
+
+\vfill
+
+Emission probability:
+
+\begin{equation}
+    \lambda_{i,j} = \begin{cases}
+    \epsilon(q)/3 \ \ \quad (\ \text{if} \quad R_{i} \neq H_{j}\ ) \\
+    1 - \epsilon(q) \quad (\ \text{if} \quad R_{i} = H_{j}\ ) \\
+    \end{cases}
+\end{equation}
+
+where $\epsilon(q) = 10^{-q/10}$ is the error probability given by the phred-scaled quality $q$.
+
+\newpage
+
+\begin{algorithm}
+    \caption{PairHMM forward algorithm}\label{alg:cap}
+    \begin{algorithmic}[1]
+        \State{Initialize \emph{M, I, D} via equation (1)}
+        \For{$i \gets 1$ to $m$}
+            \For{$j \gets 1$ to $n$}
+                \State {Calculate $\lambda_{i,j}$} via equation (4)
+                \State {Calculate $M_{i,j}, I_{i,j}, D_{i,j}$ via equation (2)}
+            \EndFor
+        \EndFor
+        \State \Return {$\sum_{j=1}^{n}(M_{m,j}+I_{m,j})$}
+    \end{algorithmic}
+\end{algorithm}
+
+This algorithm employs a 2-layer loop to calculate the elements of three matrices with a computational complexity of $\mathcal{O}(mn)$. As shown before, $M_{i,j}$, $I_{i,j}$ and $D_{i,j}$ are only decided by the \emph{left, top-left, \emph{and} top} elements of three matrices. This implies that the elements on the same \emph{antidiagonal} have not data-dependency, thus are able to be calculated in parallel.\\
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{.5\textwidth}
+        \centering
+        \includegraphics[width=.6\linewidth]{10.1177_1176934318760543-fig3.jpg}
+        \caption{Native implementation}
+        \label{fig:sub1}
+    \end{subfigure}%
+    \begin{subfigure}{.5\textwidth}
+        \centering
+        \includegraphics[width=.7\linewidth]{4-Figure4-1.png}
+        \caption{Parallel Computing}
+        \label{fig:sub2}
+    \end{subfigure}
+\end{figure}
+
+\vfill
 
 \section{References}
 
 \begin{enumerate}
-    \item R. Durbin. Biological Sequence analysis.
-    \item D. Benjamin. Pair HMM probabilistic realignment in HaplotypeCaller and Mutect.
+    \item R. Durbin. \emph{Biological Sequence analysis}.
+    \item D. Benjamin. \emph{Pair HMM probabilistic realignment in HaplotypeCaller and Mutect}.
+    \item Rick Wertenbroek. \emph{Acceleration of the Pair-HMM forward algorithm on FPGA with cloud integration for GATK}.
+    \item Shanshan Ren. \emph{Efficient Acceleration of the Pair-HMMs Forward Algorithm for GATK HaplotypeCaller on Graphics Processing Units}
 \end{enumerate}
 
 \end{document}
